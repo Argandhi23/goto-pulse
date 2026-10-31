@@ -1,0 +1,14 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Large dataset (>100MB rejected by GitHub)
+gojek_reviews.csv
+
+# Virtual environment / IDE
+.venv/
+venv/
+.env
+.vscode/
+.idea/
