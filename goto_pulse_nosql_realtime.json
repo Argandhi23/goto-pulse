@@ -1,0 +1,367 @@
+{
+  "database_metadata": {
+    "db_type": "NoSQL Document & Realtime Database (JSON Tree / Firebase RTDB Structure)",
+    "project_id": "goto-pulse-unesa-2026",
+    "schema_version": "2.0.0",
+    "last_synced_at": "2026-11-16 10:14:19",
+    "source_csv": "goto_pulse_processed.csv",
+    "total_records_synced": 42197
+  },
+  "figma_navigation_menus": {
+    "M01": {
+      "menu_id": "M01",
+      "menu_key": "1. Multi-Aspect Issue Classifier",
+      "short_title": "Auto-Bug Triage",
+      "icon": "🛠️",
+      "figma_frame_id": "Frame-101:MultiAspectClassifier",
+      "subtitle": "Pemisahan otomatis keluhan Operasional Lapangan vs Bug Teknis IT & Pembayaran",
+      "nosql_source_nodes": [
+        "/figma_navigation_menus/M01",
+        "/realtime_dashboard_summary/issue_triage_summary"
+      ],
+      "sql_source_tables": [
+        "reviews_processed",
+        "model_benchmarks",
+        "platforms"
+      ],
+      "order": 1,
+      "enabled": true
+    },
+    "M02": {
+      "menu_id": "M02",
+      "menu_key": "2. App Version Bug Radar (BERTopic)",
+      "short_title": "Version Bug Radar",
+      "icon": "📡",
+      "figma_frame_id": "Frame-102:VersionBugRadar",
+      "subtitle": "Deteksi regresi versi rilis (appVersion) & klaster topik bug dinamis BERTopic",
+      "nosql_source_nodes": [
+        "/figma_navigation_menus/M02",
+        "/realtime_dashboard_summary/version_regression_summary"
+      ],
+      "sql_source_tables": [
+        "app_versions",
+        "bertopic_clusters",
+        "reviews_processed"
+      ],
+      "order": 2,
+      "enabled": true
+    },
+    "M03": {
+      "menu_id": "M03",
+      "menu_key": "3. Customer Churn Risk Radar (0-100%)",
+      "short_title": "Churn Risk Radar",
+      "icon": "⚠️",
+      "figma_frame_id": "Frame-103:ChurnRiskRadar",
+      "subtitle": "Kuantifikasi probabilitas risiko churn pelanggan (0-100%) & sinyal kompetitor",
+      "nosql_source_nodes": [
+        "/figma_navigation_menus/M03",
+        "/realtime_dashboard_summary/churn_risk_summary",
+        "/realtime_critical_alerts"
+      ],
+      "sql_source_tables": [
+        "reviews_processed"
+      ],
+      "order": 3,
+      "enabled": true
+    },
+    "M04": {
+      "menu_id": "M04",
+      "menu_key": "4. Live Demo Predictor (Real-Time)",
+      "short_title": "Live Demo Predictor",
+      "icon": "⚡",
+      "figma_frame_id": "Frame-104:LiveDemoPredictor",
+      "subtitle": "Simulasi uji kalimat komplain real-time dengan penyimpanan instan ke Realtime DB & SQL",
+      "nosql_source_nodes": [
+        "/figma_navigation_menus/M04",
+        "/live_prediction_stream"
+      ],
+      "sql_source_tables": [
+        "live_predictions_log"
+      ],
+      "order": 4,
+      "enabled": true
+    },
+    "M05": {
+      "menu_id": "M05",
+      "menu_key": "5. Arsitektur Dual Database (SQL & NoSQL) + Figma",
+      "short_title": "Inspeksi SQL, NoSQL & Figma",
+      "icon": "🗄️",
+      "figma_frame_id": "Frame-105:DualDatabaseInspector",
+      "subtitle": "Panel pembuktian implementasi Database SQL, NoSQL Realtime Database, & Desain Figma",
+      "nosql_source_nodes": [
+        "/figma_navigation_menus",
+        "/realtime_dashboard_summary",
+        "/live_prediction_stream"
+      ],
+      "sql_source_tables": [
+        "platforms",
+        "app_versions",
+        "reviews_processed",
+        "model_benchmarks",
+        "bertopic_clusters",
+        "live_predictions_log"
+      ],
+      "order": 5,
+      "enabled": true
+    }
+  },
+  "realtime_dashboard_summary": {
+    "total_reviews_analyzed": 42197,
+    "platform_breakdown": {
+      "Tokopedia": 23699,
+      "Gojek": 18498
+    },
+    "issue_triage_summary": {
+      "class_0_it_bug_count": 1944,
+      "class_1_field_ops_count": 11786,
+      "class_2_promo_policy_count": 1673,
+      "class_3_positive_count": 26794,
+      "distribution_by_name": {
+        "Kelas 3: Apresiasi Positif / Normal": 26794,
+        "Kelas 1: Operasional Lapangan (Mitra Driver/Kurir Logistik/Penjual)": 11786,
+        "Kelas 0: Bug Teknis IT & Pembayaran (GoPay/Crash/OTP/GPS)": 1944,
+        "Kelas 2: Akun, Promo & Kebijakan Layanan": 1673
+      }
+    },
+    "version_regression_summary": {
+      "total_it_bug_reports": 1944,
+      "monitored_versions_count": 110,
+      "bertopic_coherence_cv": 0.714,
+      "lda_baseline_cv": 0.49,
+      "top_anomaly_version": "4.79.2",
+      "top_anomaly_zscore": 9.36
+    },
+    "churn_risk_summary": {
+      "high_risk_count": 969,
+      "moderate_risk_count": 2425,
+      "low_risk_count": 38803,
+      "avg_churn_score_pct": 10.8,
+      "explicit_uninstall_threat_count": 748,
+      "zone_distribution": {
+        "Low Risk (0-34%)": 38803,
+        "Moderate At-Risk (35-69%)": 2425,
+        "High Churn Risk (70-100%)": 969
+      },
+      "top_churn_triggers": {
+        "Pembatalan Order Mitra Driver & Masalah Titik GPS": 928,
+        "Keterlambatan Ekspedisi Kurir & Paket Nyangkut": 803,
+        "Ketidakpuasan Layanan Umum": 794,
+        "Ketidaksesuaian Kualitas Barang / Penjual Tokopedia": 275,
+        "Insiden Saldo GoPay Terpotong / Gagal Bayar": 254,
+        "Kegagalan Login OTP & Akses Akun": 122,
+        "Kenaikan Biaya Layanan / Ongkir & Ketiadaan Promo": 120,
+        "Regresi Bug Force Close / Blank Screen Pasca-Update": 66,
+        "Intensitas Iklan & Notifikasi Spam Mengganggu": 32
+      },
+      "competitor_mentions": {
+        "Keluhan Frustrasi Berulang (Implisit)": 2795,
+        "Ancaman Uninstall Eksplisit": 321,
+        "Pindah ke Grab": 179,
+        "Pindah ke Shopee": 48,
+        "Pindah ke Maxim": 35,
+        "Pindah ke TikTok Shop": 16
+      }
+    }
+  },
+  "realtime_critical_alerts": [
+    {
+      "alert_id": "ALT-12989",
+      "platform": "Gojek",
+      "appVersion": "5.52.1",
+      "rating": 1,
+      "S_churn": 99.64,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Regresi Bug Force Close / Blank Screen Pasca-Update",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi Marketing, Promo & Customer Policy",
+      "content_preview": "parah tau2 pesan makanan langsung blank layar apk gojek gak bisa klik batal tau2 dapat driver mana makanan nya mahal harus ganti..nge chat driver malah nyolot bilang alasan klasik "
+    },
+    {
+      "alert_id": "ALT-01920",
+      "platform": "Gojek",
+      "appVersion": "5.41.1",
+      "rating": 1,
+      "S_churn": 99.42,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Ketidakpuasan Layanan Umum",
+      "competitor_signal": "Pindah ke Grab",
+      "division": "Divisi IT Engineering, Payment & QA System",
+      "content_preview": "APP JELEK MENDING GRAB COK.!!!"
+    },
+    {
+      "alert_id": "ALT-04165",
+      "platform": "Gojek",
+      "appVersion": "5.25.1",
+      "rating": 1,
+      "S_churn": 99.34,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Ketidakpuasan Layanan Umum",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi IT Engineering, Payment & QA System",
+      "content_preview": "udah saya hapus aplikasi. aplikasi tidak berguna sangat kecewa saya"
+    },
+    {
+      "alert_id": "ALT-06077",
+      "platform": "Gojek",
+      "appVersion": "5.65.1",
+      "rating": 1,
+      "S_churn": 99.33,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Kegagalan Login OTP & Akses Akun",
+      "competitor_signal": "Pindah ke Grab",
+      "division": "Divisi Field Operations, Mitra Driver & Kurir Logistik",
+      "content_preview": "Jelek bgt. Mo login buat pesen gofud pakai verif wajah gagal terus. Parahnding pake grab"
+    },
+    {
+      "alert_id": "ALT-01961",
+      "platform": "Gojek",
+      "appVersion": "5.73.2",
+      "rating": 1,
+      "S_churn": 98.64,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Insiden Saldo GoPay Terpotong / Gagal Bayar",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi IT Engineering, Payment & QA System",
+      "content_preview": "ada fasilitas gopay later.parah,telat 1 hari aja,,kena denda 50rb.dibanding paylater lain,,ini terbilang tidak worthed dan jelek banget ya.ud gitu,gak ada pengingat.kayak sengaja b"
+    },
+    {
+      "alert_id": "ALT-16533",
+      "platform": "Gojek",
+      "appVersion": "5.52.1",
+      "rating": 1,
+      "S_churn": 98.55,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Ketidakpuasan Layanan Umum",
+      "competitor_signal": "Pindah ke Grab",
+      "division": "Divisi Field Operations, Mitra Driver & Kurir Logistik",
+      "content_preview": "jgn pinjam di GO PINJAM (angsuran ke 2), telat 1 hari di teror tlpn terus menerus & di chat wa tdk ada etikanya... sy sdh blng (stlh terima uang setoran dr sopir yg pakai mobilku u"
+    },
+    {
+      "alert_id": "ALT-13679",
+      "platform": "Gojek",
+      "appVersion": "5.53.2",
+      "rating": 1,
+      "S_churn": 98.55,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Keterlambatan Ekspedisi Kurir & Paket Nyangkut",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi Field Operations, Mitra Driver & Kurir Logistik",
+      "content_preview": "ini jelek banget .. dapat drivernya lama .. auto uninstall"
+    },
+    {
+      "alert_id": "ALT-05087",
+      "platform": "Gojek",
+      "appVersion": "5.68.1",
+      "rating": 1,
+      "S_churn": 98.53,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Intensitas Iklan & Notifikasi Spam Mengganggu",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi Marketing, Promo & Customer Policy",
+      "content_preview": "kecewa banget sama GoFood!! saya tidak memesan makanan apapun di jam 1 dini hari, bisa-bisanya tiba-tiba ada notif pesanan sedang diantar, cash 58rb sekian, sumpah ngeselin, kalau "
+    },
+    {
+      "alert_id": "ALT-17628",
+      "platform": "Gojek",
+      "appVersion": "5.44.1",
+      "rating": 1,
+      "S_churn": 98.4,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Keterlambatan Ekspedisi Kurir & Paket Nyangkut",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi Marketing, Promo & Customer Policy",
+      "content_preview": "pengalaman buruk, kalo ada sistem voucher buat potongan harga tapi ujung-ujungnya di cancel terus sama ojolnya mending hapus aja tuh sistem voucher. nyusahin"
+    },
+    {
+      "alert_id": "ALT-10910",
+      "platform": "Gojek",
+      "appVersion": "5.55.2",
+      "rating": 1,
+      "S_churn": 98.3,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Keterlambatan Ekspedisi Kurir & Paket Nyangkut",
+      "competitor_signal": "Pindah ke Grab",
+      "division": "Divisi Field Operations, Mitra Driver & Kurir Logistik",
+      "content_preview": "Se kecewa ini sama gojek.. Susah banget dapat pengemudi hemat.. Ngapain dibikin hemat kalo ujung nya susah dapet pengemudi nya.. Sudah lama saya pake gojek baru sekarang ngalamin b"
+    },
+    {
+      "alert_id": "ALT-08587",
+      "platform": "Gojek",
+      "appVersion": "5.55.2",
+      "rating": 1,
+      "S_churn": 98.16,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Insiden Saldo GoPay Terpotong / Gagal Bayar",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi IT Engineering, Payment & QA System",
+      "content_preview": "aplikasi buruk. hapus aja ini aplikasi . top up saldo dari tgl 26 mei sampai sekarang belum masuk . dan ya respon pelayanan cs gopay sangat sangat buruk dan tidak ada responn sama "
+    },
+    {
+      "alert_id": "ALT-03188",
+      "platform": "Gojek",
+      "appVersion": "4.79.2",
+      "rating": 1,
+      "S_churn": 98.01,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Ketidakpuasan Layanan Umum",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi Field Operations, Mitra Driver & Kurir Logistik",
+      "content_preview": "pesen gofood disini 2 jam baru nyampe, pindah resto pun sama aja. udah uninstall setahun kirain berubah baik. taunya makin buruk"
+    },
+    {
+      "alert_id": "ALT-04112",
+      "platform": "Gojek",
+      "appVersion": "4.92.1",
+      "rating": 1,
+      "S_churn": 97.96,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Pembatalan Order Mitra Driver & Masalah Titik GPS",
+      "competitor_signal": "Keluhan Frustrasi Berulang (Implisit)",
+      "division": "Divisi Field Operations, Mitra Driver & Kurir Logistik",
+      "content_preview": "kecewa banget banget, semakin kesini semakin jelek. pesen pake yng cepat, ditambah pencarian prioritas, tapi dikasih driver yang jauh2, jelas sekali driver ada banyak di depan mata"
+    },
+    {
+      "alert_id": "ALT-00940",
+      "platform": "Gojek",
+      "appVersion": "5.75.2",
+      "rating": 1,
+      "S_churn": 97.94,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Keterlambatan Ekspedisi Kurir & Paket Nyangkut",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi Field Operations, Mitra Driver & Kurir Logistik",
+      "content_preview": "prioritas tp layanan jelek di followup katanya tidak sesuai ketentuan, uninstall setelah selama ini pakai . jelek reall evidence sudah tp masih tidak biza ditindak lanjuti. kasian "
+    },
+    {
+      "alert_id": "ALT-01102",
+      "platform": "Gojek",
+      "appVersion": "4.79.2",
+      "rating": 1,
+      "S_churn": 97.64,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "churn_trigger": "Ketidakpuasan Layanan Umum",
+      "competitor_signal": "Ancaman Uninstall Eksplisit",
+      "division": "Divisi IT Engineering, Payment & QA System",
+      "content_preview": "saya sdh uninstall apk ini.saya sangat kecewa krn saya mendapat chating bernada pengancaman .dari pihaķ penagihan hutang.yg seharusnya bkn ranahnya.."
+    }
+  ],
+  "live_prediction_stream": [
+    {
+      "stream_id": "RT-PRED-0001",
+      "timestamp": "2026-11-16 10:07:27",
+      "platform": "Gojek",
+      "appVersion": "4.79.2",
+      "rating": 1,
+      "raw_text": "Habis apdet aplikasi Gojek ke versi 4.79.2 malah sering fc sendiri pas mau bayar pake GoPay, saldo udh kepotong tp transaksi gagal! Kalo gk bener juga sy uninstal pindah ke Grab aja.",
+      "clean_text": "habis update aplikasi gojek versi 4 79 2 malah sering force close sendiri pas mau bayar pakai gopay saldo sudah terpotong tetapi transaksi gagal kalau tidak benar juga uninstall pindah grab aja",
+      "label_issue": 0,
+      "issue_name": "Kelas 0: Bug Teknis IT & Pembayaran (GoPay/Crash/OTP/GPS)",
+      "division": "Divisi IT Engineering, Payment & QA System",
+      "bug_topic": "Topik 0: Kegagalan Transaksi & Saldo GoPay Terpotong",
+      "S_churn": 92.0,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "urgency": "KRITIS / HIGH CHURN RISK (Prioritas Eskalasi < 1 Jam)",
+      "source_db": "NoSQL Realtime Database"
+    }
+  ]
+}

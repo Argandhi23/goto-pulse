@@ -1,6 +1,7 @@
 import os
 import time
 import re
+import json
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -15,11 +16,13 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 
+import database_manager as dbm
+
 # ==============================================================================
 # KONFIGURASI HALAMAN UTAMA STREAMLIT (GOTO PULSE) - BAB III.G.6
 # ==============================================================================
 st.set_page_config(
-    page_title="GoTo Pulse - Enterprise Auto-Bug Triage & Churn Radar",
+    page_title="GoTo Pulse - Enterprise Auto-Bug Triage & Churn Radar (SQL + NoSQL Realtime)",
     page_icon="🚀",
     layout="wide"
 )
@@ -110,6 +113,7 @@ BERTOPIC_CTFIDF_TABLE = pd.DataFrame({
     "Coherence Score (Cv)": [0.742, 0.728, 0.715, 0.706, 0.679]
 })
 
+
 def normalize_indonesian_text(text: str):
     if not isinstance(text, str):
         return "", []
@@ -127,6 +131,7 @@ def normalize_indonesian_text(text: str):
             tokens.append(norm_word)
     return " ".join(tokens), replaced_pairs
 
+
 def match_any_keyword(text: str, keywords: list) -> bool:
     for kw in keywords:
         if " " in kw:
@@ -136,6 +141,7 @@ def match_any_keyword(text: str, keywords: list) -> bool:
             if re.search(r"\b" + re.escape(kw) + r"\b", text):
                 return True
     return False
+
 
 def classify_issue_rule(clean_text: str, rating: int, platform: str = "Gojek", raw_text: str = "") -> int:
     t = (str(clean_text) + " " + str(raw_text)).lower()
@@ -151,26 +157,20 @@ def classify_issue_rule(clean_text: str, rating: int, platform: str = "Gojek", r
 
     # 2. Bug Teknis IT, Sistem & Pembayaran (Kelas 0)
     it_keywords = [
-        # Crash, Blank & Hang
         "bug", "force close", "crash", "blank screen", "layar blank", "layar putih",
         "layar hitam", "terpental", "keluar sendiri", "fc", "freeze", "hang", "stuck",
-        # Login & Otentikasi Akun
         "otp", "login akun", "gagal login", "tidak bisa login", "gabisa login", "gak bisa login",
         "tidak bisa masuk", "gabisa masuk", "gak bisa masuk", "gagal masuk",
         "tidak bisa buka", "gabisa buka", "gak bisa buka", "gagal buka",
-        # Transaksi, Pulsa & Pembayaran
         "gopay", "saldo terpotong", "saldo kepotong", "uang terpotong", "potong saldo",
         "motong saldo", "saldo hilang", "uang hilang", "qris", "topup", "top up",
         "pulsa", "gopulsa", "beli pulsa", "isi pulsa", "metode pembayaran",
         "gagal bayar", "tidak bisa bayar", "gagal transfer", "transfer gagal",
-        # Peta & GPS
         "gps", "maps", "titik jemput", "peta ngaco", "titik maps", "akurasi gps",
-        # Server, Konektivitas & Update
         "server error", "server down", "gangguan server", "error sistem", "sistem error",
         "aplikasi error", "aplikasi gagal", "aplikasi lambat", "loading lama", "muter terus",
         "update versi", "versi baru error", "gagal update", "tidak bisa update",
         "gagal download", "tidak bisa download",
-        # Kerusakan Fungsional Tombol UI (Termasuk tombol silang X iklan macet)
         "tombol x", "tanda x", "tidak bisa diklik", "tidak bisa dipencet", "tombol macet"
     ]
     if platform == "Gojek" and any(k in t for k in ["mental", "keluar sendiri", "fc", "force close"]):
@@ -181,17 +181,12 @@ def classify_issue_rule(clean_text: str, rating: int, platform: str = "Gojek", r
 
     # 3. Akun, Promo, Kebijakan Layanan, Iklan & Layanan CS (Kelas 2)
     promo_policy_keywords = [
-        # Promo, Tarif & Biaya
         "promo", "voucher", "diskon", "cashback", "mahal", "biaya admin", "biaya aplikasi",
         "biaya jasa", "ongkir mahal", "tarif mahal", "poin", "kupon",
-        # Akun & Kebijakan
         "kebijakan", "aturan", "akun diblokir", "suspend", "banned", "blokir akun",
-        # Iklan & Pop-up (Monetisasi & Kebijakan Promosi Marketing)
         "iklan", "ads", "pop up", "popup", "banner iklan", "clickbait", "iklan mengganggu",
         "kebanyakan iklan", "iklan spam", "iklan judi", "iklan terus", "durasi iklan",
-        # Notifikasi Spam Promo
         "notifikasi", "notif", "spam notifikasi", "notifikasi promo", "notif mengganggu",
-        # Layanan CS & Bot
         "cs", "customer service", "chat cs", "ngadu ke cs", "bot cs", "bantuan cs", "telepon cs"
     ]
     if match_any_keyword(t, promo_policy_keywords):
@@ -199,10 +194,8 @@ def classify_issue_rule(clean_text: str, rating: int, platform: str = "Gojek", r
 
     # 4. Operasional Lapangan: Driver, Kurir Logistik & Penjual/Produk Fisik (Kelas 1)
     field_keywords = [
-        # Mitra Driver Gojek
         "driver", "pengemudi", "ojol", "abang ojol", "kurir", "paket", "pengiriman", "ekspedisi",
         "antar", "jemput", "kasar", "cancel", "batal", "nyasar", "driver cancel", "batal order",
-        # Karakteristik Khusus Tokopedia (Barang fisik, packaging, seller)
         "penjual", "seller", "toko", "barang", "produk", "rusak", "pecah", "cacat",
         "palsu", "kemasan", "packing", "packaging", "dus", "kardus", "bubble", "ukuran",
         "warna", "pesanan", "orderan", "daging", "makanan", "baut", "kotor", "tumpah",
@@ -218,13 +211,14 @@ def classify_issue_rule(clean_text: str, rating: int, platform: str = "Gojek", r
     if rating >= 4:
         return 3
     elif match_any_keyword(t, ["aplikasi", "apk", "sistem", "fitur", "update", "versi", "layar"]):
-        return 0  # Komplain teknis umum sistem/aplikasi
+        return 0
     elif match_any_keyword(t, ["layanan", "pelayanan", "harga", "aturan", "penipu", "rugi"]):
-        return 2  # Komplain umum kebijakan layanan/marketing
+        return 2
     elif platform == "Tokopedia":
         return 1
     else:
         return 1
+
 
 def compute_lexical_index(clean_text: str) -> float:
     t = str(clean_text).lower()
@@ -237,6 +231,7 @@ def compute_lexical_index(clean_text: str) -> float:
     ]):
         return 0.5
     return 0.0
+
 
 def extract_churn_trigger_reason(row) -> str:
     t = str(row["clean_text"]).lower()
@@ -262,6 +257,7 @@ def extract_churn_trigger_reason(row) -> str:
         return "Ketidaksesuaian Kualitas Barang / Penjual Tokopedia"
     return "Ketidakpuasan Layanan Umum"
 
+
 def extract_competitor_mention(clean_text: str) -> str:
     t = str(clean_text).lower()
     if "grab" in t:
@@ -276,6 +272,7 @@ def extract_competitor_mention(clean_text: str) -> str:
         return "Ancaman Uninstall Eksplisit"
     return "Keluhan Frustrasi Berulang (Implisit)"
 
+
 def assign_bug_topic(clean_text: str) -> str:
     t = str(clean_text).lower()
     if any(k in t for k in ["gopay", "saldo", "terpotong", "bayar", "qris", "topup", "transfer"]):
@@ -289,11 +286,11 @@ def assign_bug_topic(clean_text: str) -> str:
     else:
         return "Topik 4: Responsivitas Antarmuka Lambat (Latency & Loading)"
 
+
 # ==============================================================================
-# ENGINE PEMROSESAN LOKAL DI VS CODE (PENGGANTI COLAB - LANGSung BUAT CSV BARU)
+# ENGINE PEMROSESAN CSV & MIGRASI KE DATABASE SQL + NOSQL REALTIME
 # ==============================================================================
-def build_processed_csv_locally(force_rebuild=False):
-    # Jika goto_pulse_processed.csv sudah versi baru dan tidak diminta rebuild, langsung baca
+def build_processed_csv_and_databases(force_rebuild=False):
     required_new_cols = {
         "content", "rating", "at", "appVersion", "platform", "category",
         "clean_text", "label_issue", "issue_name", "division", "I_lex",
@@ -308,11 +305,16 @@ def build_processed_csv_locally(force_rebuild=False):
                 full_df = pd.read_csv(PROCESSED_CSV_PATH)
                 full_df["clean_text"] = full_df["clean_text"].fillna("").astype(str)
                 full_df["content"] = full_df["content"].fillna("").astype(str)
-                return full_df, f"File Olahan Lokal Terbaru (goto_pulse_processed.csv) - {len(full_df):,} Baris"
+                dbm.migrate_csv_to_sql_and_nosql(full_df, force_recreate=False)
+                sql_df = dbm.query_sql_dataframe("SELECT * FROM reviews_processed")
+                if len(sql_df) > 0:
+                    sql_df["clean_text"] = sql_df["clean_text"].fillna("").astype(str)
+                    sql_df["content"] = sql_df["content"].fillna("").astype(str)
+                    return sql_df, f"Database SQL (goto_pulse_sql.db) & NoSQL Realtime DB Aktif — {len(sql_df):,} Baris"
+                return full_df, f"File Olahan Lokal (goto_pulse_processed.csv) — {len(full_df):,} Baris"
         except Exception:
             pass
 
-    # Cari semua CSV mentah di c:\Projects\Goto Pulse (selain goto_pulse_processed.csv)
     all_csvs = [
         os.path.join(BASE_DIR, f) for f in os.listdir(BASE_DIR)
         if f.lower().endswith(".csv") and f.lower() != "goto_pulse_processed.csv"
@@ -374,7 +376,6 @@ def build_processed_csv_locally(force_rebuild=False):
         except Exception:
             continue
 
-    # Jika tidak ada CSV mentah tetapi ada goto_pulse_processed.csv versi lama, perbarui dari file lama tersebut
     if len(dfs) == 0 and os.path.exists(PROCESSED_CSV_PATH):
         old_df = pd.read_csv(PROCESSED_CSV_PATH, low_memory=False)
         sub = pd.DataFrame()
@@ -390,7 +391,7 @@ def build_processed_csv_locally(force_rebuild=False):
     if len(dfs) > 0:
         df = pd.concat(dfs, ignore_index=True).dropna(subset=["content"]).drop_duplicates(subset=["content"])
         df = df[df["rating"].isin([1, 2, 3, 4, 5])].head(50000).copy()
-        source_status = f"Hasil Olahan Lokal VS Code ({', '.join(raw_names)}) → Disimpan ke goto_pulse_processed.csv ({len(df):,} Baris)"
+        source_status = f"Dimigrasikan dari CSV ({', '.join(raw_names)}) ke SQL & NoSQL ({len(df):,} Baris)"
     else:
         sample_data = [
             ("Habis update ke versi 4.79.2 aplikasi Gojek malah sering force close sendiri pas mau bayar pakai GoPay, saldo kepotong tapi transaksi gagal! Lama-lama saya uninstall pindah ke Grab aja.", 1, "2026-02-15", "4.79.2", "Ride-Hailing & GoPay", "Gojek"),
@@ -403,9 +404,8 @@ def build_processed_csv_locally(force_rebuild=False):
             ("Driver ojol tiba-tiba batalkan pesanan sepihak tanpa alasan padahal sudah nunggu 25 menit di tengah hujan, kecewa berat!", 1, "2026-02-23", "4.80.1", "Mitra Driver", "Gojek"),
         ] * 50
         df = pd.DataFrame(sample_data, columns=["content", "rating", "at", "appVersion", "category", "platform"])
-        source_status = "Mode Simulasi Bawaan Disimpan ke goto_pulse_processed.csv"
+        source_status = "Mode Simulasi Bawaan Disimpan ke SQL & NoSQL"
 
-    # Pastikan variasi tanggal dan versi aplikasi Tokopedia agar grafik BERTopic tidak menumpuk di 1 titik
     tp_mask = (df["platform"] == "Tokopedia") & (df["appVersion"].astype(str).isin(["3.240.0", "nan", ""]))
     if tp_mask.sum() > 10:
         tp_vers = ["3.238.0", "3.239.1", "3.240.0", "3.241.0", "3.242.1"]
@@ -414,18 +414,15 @@ def build_processed_csv_locally(force_rebuild=False):
         df.loc[tp_mask, "appVersion"] = idx_hash.apply(lambda h: tp_vers[h % len(tp_vers)])
         df.loc[tp_mask, "at"] = idx_hash.apply(lambda h: tp_dts[h % len(tp_dts)])
 
-    # Normalisasi Slang & Selective Stopword Retention (Bab III.G.1)
     df["clean_text"] = df["content"].apply(lambda x: normalize_indonesian_text(x)[0])
     df = df[df["clean_text"].str.len() > 2].copy()
 
-    # Pelabelan Multi-Aspect Issue (Y1) & Lexical Churn Index (Bab III.D Tabel 3.4)
     df["label_issue"] = df.apply(lambda r: classify_issue_rule(r["clean_text"], r["rating"], r.get("platform", "Gojek"), r.get("content", "")), axis=1)
     df["issue_name"] = df["label_issue"].map(CLASS_MAPPING)
     df["division"] = df["label_issue"].map(DIVISION_ROUTING)
     df["I_lex"] = df["clean_text"].apply(compute_lexical_index)
     df["label_churn_binary"] = ((df["I_lex"] >= 0.5) & (df["rating"] <= 2)).astype(int)
 
-    # Pelatihan Model Klasik TF-IDF + LinearSVC & Logistic Regression secara Lokal untuk P_BERT_churn
     try:
         tfidf = TfidfVectorizer(ngram_range=(1, 2), max_features=25000)
         X_all = tfidf.fit_transform(df["clean_text"])
@@ -442,7 +439,6 @@ def build_processed_csv_locally(force_rebuild=False):
             np.clip(0.35 * (df["label_issue"] == 0).astype(float) + 0.45 * df["I_lex"] + 0.20 * ((5 - df["rating"]) / 4.0), 0.02, 0.99), 4
         )
 
-    # Perhitungan Skor Risiko Churn 0-100% (Bab III.G.4)
     df["R_pen"] = (5 - df["rating"]) / 4.0
     df["S_churn"] = np.minimum(
         100.0,
@@ -452,7 +448,6 @@ def build_processed_csv_locally(force_rebuild=False):
         lambda s: "High Churn Risk (70-100%)" if s >= 70.0 else ("Moderate At-Risk (35-69%)" if s >= 35.0 else "Low Risk (0-34%)")
     )
 
-    # Klaster Topik Bug (Y2), Faktor Pemicu Churn, Sinyal Kompetitor, & Skor Z Regresi Versi
     df["bug_topic"] = df["clean_text"].apply(assign_bug_topic)
     df["churn_trigger"] = df.apply(extract_churn_trigger_reason, axis=1)
     df["competitor_signal"] = df["clean_text"].apply(extract_competitor_mention)
@@ -463,45 +458,84 @@ def build_processed_csv_locally(force_rebuild=False):
     z_score_map = ((bug_counts_per_ver - mean_bug) / std_bug).round(2).to_dict()
     df["version_bug_zscore"] = df["appVersion"].map(z_score_map).fillna(0.0)
 
-    # Simpan / Timpa langsung ke c:\Projects\Goto Pulse\goto_pulse_processed.csv
     df.to_csv(PROCESSED_CSV_PATH, index=False)
+    dbm.migrate_csv_to_sql_and_nosql(df, force_recreate=True)
     return df, source_status
+
 
 @st.cache_data
 def get_cached_data():
-    return build_processed_csv_locally(force_rebuild=False)
+    return build_processed_csv_and_databases(force_rebuild=False)
+
 
 # ==============================================================================
-# SIDEBAR NAVIGASI GOTO PULSE & TOMBOL REBUILD CSV LOKAL
+# SIDEBAR NAVIGASI GOTO PULSE (DATA MENU DIAMBIL DARI DATABASE NOSQL / FIGMA)
 # ==============================================================================
 st.sidebar.title("🚀 GoTo Pulse")
 st.sidebar.caption("Enterprise Auto-Bug Triage, Version Regression & Customer Churn Radar PT GoTo Gojek Tokopedia Tbk")
-st.sidebar.markdown("---")
 
-menu = st.sidebar.radio(
-    "Pilih Modul Sistem (Bab III.G.6):",
-    [
-        "1. Multi-Aspect Issue Classifier",
-        "2. App Version Bug Radar (BERTopic)",
-        "3. Customer Churn Risk Radar (0-100%)",
-        "4. Live Demo Predictor (Real-Time)"
-    ]
-)
-
-st.sidebar.markdown("---")
-if st.sidebar.button("🔄 Proses Ulang CSV Lokal Sekarang"):
-    with st.spinner("Memproses CSV mentah lokal & memperbarui goto_pulse_processed.csv..."):
+if st.sidebar.button("🔄 Olah Ulang CSV & Sinkronkan SQL + NoSQL"):
+    with st.spinner("Memproses CSV mentah & memigrasikan ke Database SQL + NoSQL Realtime DB..."):
         st.cache_data.clear()
-        df_data, data_source_info = build_processed_csv_locally(force_rebuild=True)
-    st.sidebar.success("Berhasil memperbarui goto_pulse_processed.csv di folder lokal!")
+        df_data, data_source_info = build_processed_csv_and_databases(force_rebuild=True)
+    st.sidebar.success("Berhasil memperbarui Database SQL & NoSQL Realtime DB!")
 else:
     df_data, data_source_info = get_cached_data()
 
-st.sidebar.info(
-    f"**Status Dataset Hilir (Lokal VS Code):**\n{data_source_info}\n\n"
-    f"**Big Data Backbone Hulu (Stage 1):**\nPySpark 19.483.721 Baris Parquet (`Lyon28/Corpus-Indonesia`, 1,9 GB)"
+# Ambil dokumen Realtime Database (NoSQL) & daftar Menu Navigasi Figma dari NoSQL
+nosql_realtime_doc = dbm.load_nosql_realtime_data()
+figma_menus = dbm.get_figma_menus_from_nosql()
+menu_options = [m["menu_key"] for m in figma_menus]
+menu_meta_map = {m["menu_key"]: m for m in figma_menus}
+
+st.sidebar.markdown("---")
+menu = st.sidebar.radio(
+    "📌 Menu Aplikasi (Dari NoSQL / Figma Spec):",
+    menu_options
 )
+
+active_menu_meta = menu_meta_map.get(menu, {})
+if active_menu_meta:
+    st.sidebar.caption(
+        f"**Figma Frame:** `{active_menu_meta.get('figma_frame_id', '-')}`\n\n"
+        f"**NoSQL Node:** `{', '.join(active_menu_meta.get('nosql_source_nodes', []))}`\n\n"
+        f"**SQL Tables:** `{', '.join(active_menu_meta.get('sql_source_tables', []))}`"
+    )
+
+st.sidebar.markdown("---")
+db_diag = dbm.get_database_diagnostics()
+sql_status_icon = "🟢" if db_diag["sql_connected"] else "🔴"
+nosql_status_icon = "🟢" if db_diag["nosql_connected"] else "🔴"
+fb_cfg = db_diag["firebase_cloud_config"]
+cloud_badge = "Cloud Firebase RTDB + Lokal" if fb_cfg.get("use_cloud_firebase") else "Realtime JSON Tree Lokal"
+
+st.sidebar.success(
+    f"**Status Dual Database Aktif:**\n"
+    f"- {sql_status_icon} **SQL DB (SQLite3):** `{db_diag['sql_file_size_mb']} MB` ({len(db_diag['sql_tables'])} Tabel, `{db_diag['sql_tables'].get('reviews_processed', 0):,}` Baris)\n"
+    f"- {nosql_status_icon} **NoSQL Realtime DB:** `{db_diag['nosql_file_size_kb']} KB` ({cloud_badge})\n"
+    f"- 🎨 **UI Spec:** Figma Terhubung ke `/figma_navigation_menus`"
+)
+
+with st.sidebar.expander("🔗 Koneksi Cloud Firebase RTDB (Opsional)", expanded=False):
+    st.caption("Jika ingin menyinkronkan NoSQL lokal ke Cloud Firebase Realtime Database milik kelompok, tempel URL database di bawah:")
+    fb_url_input = st.text_input(
+        "Firebase Realtime DB URL:",
+        value=fb_cfg.get("firebase_realtime_db_url", ""),
+        placeholder="https://goto-pulse-default-rtdb.asia-southeast1.firebasedatabase.app"
+    )
+    if st.button("💾 Simpan & Sinkronkan ke Cloud Firebase"):
+        saved_cfg = dbm.save_firebase_config(fb_url_input)
+        dbm.migrate_csv_to_sql_and_nosql(df_data, force_recreate=True)
+        st.rerun()
+
 st.sidebar.caption("Program Studi Teknik Informatika - Fakultas Teknik UNESA (2026/2027)")
+
+# Ambil ringkasan eksekutif dari NoSQL Realtime Database
+rt_summary = nosql_realtime_doc.get("realtime_dashboard_summary", {})
+rt_triage = rt_summary.get("issue_triage_summary", {})
+rt_ver = rt_summary.get("version_regression_summary", {})
+rt_churn = rt_summary.get("churn_risk_summary", {})
+
 
 # ==============================================================================
 # MODUL 1: MULTI-ASPECT ISSUE CLASSIFIER (BAB III.G.6)
@@ -511,6 +545,11 @@ if menu == "1. Multi-Aspect Issue Classifier":
     st.markdown(
         "Memisahkan secara otomatis ribuan keluhan **Operasional Lapangan (Mitra Driver Gojek / Kurir Tokopedia)** "
         "dari laporan **Bug Teknis Sistem IT & Pembayaran (Force Close / GoPay / OTP / GPS)** untuk diteruskan ke divisi terkait."
+    )
+    st.info(
+        "📡 **Sumber Data Tampilan Modul 1:** Metrik Ringkasan (Summary KPI) & Distribusi Kelas diambil dari "
+        "**NoSQL Realtime Database (`/realtime_dashboard_summary/issue_triage_summary`)**, sedangkan Tabel Benchmarking "
+        "dan Rute Tiket Komplain diambil dari **Database SQL (`model_benchmarks` & `reviews_processed`)**."
     )
 
     with st.expander("📊 Lihat Bukti Kinerja Arsitektur Two-Stage Dataset & Throughput PySpark (Bab II.D.2 & Bab III.G.1)", expanded=False):
@@ -522,40 +561,57 @@ if menu == "1. Multi-Aspect Issue Classifier":
         st.caption(
             "**Catatan Metodologis (Bab III.G.1):** Pemrosesan hulu menggunakan `spark.read.parquet()` dengan "
             "`spark.sql.adaptive.enabled=true`, deduplikasi terdistribusi (`dropDuplicates`), ekstraksi entitas korporasi (`rlike`), "
-            "dan normalisasi kamus slang berbasis `sc.broadcast()` sebelum ditransfer ke Data Hilir Gojek & Tokopedia."
+            "dan normalisasi kamus slang berbasis `sc.broadcast()` sebelum dimigrasikan ke Database SQL & NoSQL."
         )
 
+    # KPI diambil langsung dari NoSQL Realtime Database Summary
+    total_rev_rt = rt_summary.get("total_reviews_analyzed", len(df_data))
+    c0_rt = rt_triage.get("class_0_it_bug_count", int((df_data["label_issue"] == 0).sum()))
+    c1_rt = rt_triage.get("class_1_field_ops_count", int((df_data["label_issue"] == 1).sum()))
+    c2_rt = rt_triage.get("class_2_promo_policy_count", int((df_data["label_issue"] == 2).sum()))
+
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Ulasan Hilir Dianalisis", f"{len(df_data):,}")
-    col2.metric("Tiket Bug Teknis IT (Kelas 0)", f"{(df_data['label_issue'] == 0).sum():,}")
-    col3.metric("Tiket Operasional Lapangan (Kelas 1)", f"{(df_data['label_issue'] == 1).sum():,}")
-    col4.metric("Akun, Promo & Kebijakan (Kelas 2)", f"{(df_data['label_issue'] == 2).sum():,}")
+    col1.metric("Total Ulasan Dianalisis (Realtime DB)", f"{total_rev_rt:,}")
+    col2.metric("Tiket Bug Teknis IT (Kelas 0)", f"{c0_rt:,}")
+    col3.metric("Tiket Operasional Lapangan (Kelas 1)", f"{c1_rt:,}")
+    col4.metric("Akun, Promo & Kebijakan (Kelas 2)", f"{c2_rt:,}")
 
     c_left, c_right = st.columns([1, 1.15])
     with c_left:
-        dist_df = df_data["issue_name"].value_counts().reset_index()
-        dist_df.columns = ["Kategori Masalah (Y1)", "Jumlah Ulasan"]
+        dist_dict = rt_triage.get("distribution_by_name", {})
+        if dist_dict:
+            dist_df = pd.DataFrame(list(dist_dict.items()), columns=["Kategori Masalah (Y1)", "Jumlah Ulasan"])
+        else:
+            dist_df = df_data["issue_name"].value_counts().reset_index()
+            dist_df.columns = ["Kategori Masalah (Y1)", "Jumlah Ulasan"]
         fig_pie = px.pie(
             dist_df, names="Kategori Masalah (Y1)", values="Jumlah Ulasan",
-            hole=0.42, title="Distribusi Otomatis Triase Masalah Pelanggan PT GoTo (Y1)"
+            hole=0.42, title="Summary Distribusi Triase Masalah Pelanggan (Dari NoSQL Realtime DB)"
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
     with c_right:
-        st.subheader("Tabel Benchmarking Model Klasifikasi (Bab III.G.2 & III.G.5)")
-        bench_df = pd.DataFrame({
-            "Model Algoritma": [
-                "IndoBERT Fine-Tuned (indobenchmark/indobert-base-p1)",
-                "TF-IDF (25K Fitur, n-gram 1-2) + LinearSVC (Calibrated)",
-                "TF-IDF (25K Fitur, n-gram 1-2) + Logistic Regression (L2)"
-            ],
-            "Accuracy (%)": [94.12, 90.44, 88.44],
-            "Macro Precision (%)": [93.85, 91.53, 89.73],
-            "Macro Recall (%)": [93.40, 89.20, 83.94],
-            "Macro F1-Score (%)": [93.62, 90.31, 86.53],
-            "Weighted F1-Score (%)": [94.08, 90.38, 88.19]
-        })
-        st.dataframe(bench_df, use_container_width=True, hide_index=True)
+        st.subheader("Tabel Benchmarking Model Klasifikasi (Dari Tabel SQL `model_benchmarks`)")
+        bench_sql_df = dbm.query_sql_dataframe(
+            "SELECT model_name AS 'Model Algoritma', accuracy AS 'Accuracy (%)', "
+            "macro_precision AS 'Macro Precision (%)', macro_recall AS 'Macro Recall (%)', "
+            "macro_f1 AS 'Macro F1-Score (%)', weighted_f1 AS 'Weighted F1-Score (%)' "
+            "FROM model_benchmarks"
+        )
+        if len(bench_sql_df) == 0:
+            bench_sql_df = pd.DataFrame({
+                "Model Algoritma": [
+                    "IndoBERT Fine-Tuned (indobenchmark/indobert-base-p1)",
+                    "TF-IDF (25K Fitur, n-gram 1-2) + LinearSVC (Calibrated)",
+                    "TF-IDF (25K Fitur, n-gram 1-2) + Logistic Regression (L2)"
+                ],
+                "Accuracy (%)": [94.12, 90.44, 88.44],
+                "Macro Precision (%)": [93.85, 91.53, 89.73],
+                "Macro Recall (%)": [93.40, 89.20, 83.94],
+                "Macro F1-Score (%)": [93.62, 90.31, 86.53],
+                "Weighted F1-Score (%)": [94.08, 90.38, 88.19]
+            })
+        st.dataframe(bench_sql_df, use_container_width=True, hide_index=True)
         st.success(
             "**Keputusan Hipotesis (H0 Ditolak, H1 Diterima):** Model Transfer Learning **IndoBERT** menghasilkan peningkatan "
             "signifikan pada **Macro F1-Score (93,62%)** dan **Weighted F1-Score (94,08%)** dibandingkan metode klasik "
@@ -628,7 +684,7 @@ if menu == "1. Multi-Aspect Issue Classifier":
             "(Recall 95,56%), sehingga meminimalkan risiko terlewatnya insiden kritis seperti saldo GoPay terpotong atau *force close*."
         )
 
-    st.subheader("Daftar Rute Distribusi Tiket Komplain Otomatis")
+    st.subheader("Daftar Rute Distribusi Tiket Komplain Otomatis (Dari Tabel SQL `reviews_processed`)")
     f_col1, f_col2 = st.columns(2)
     with f_col1:
         filter_plat = st.multiselect("Filter Platform:", options=df_data["platform"].unique().tolist(), default=df_data["platform"].unique().tolist())
@@ -641,6 +697,7 @@ if menu == "1. Multi-Aspect Issue Classifier":
         use_container_width=True
     )
 
+
 # ==============================================================================
 # MODUL 2: APP VERSION BUG RADAR - BERTOPIC (BAB III.G.6)
 # ==============================================================================
@@ -649,6 +706,11 @@ elif menu == "2. App Version Bug Radar (BERTopic)":
     st.markdown(
         "Mendeteksi anomali lonjakan klaster topik bug spesifik pasca-rilis pembaruan versi aplikasi (`appVersion`) "
         "dan rentang waktu (`at`) menggunakan kombinasi **BERTopic (Transformer Embeddings + UMAP + HDBSCAN + c-TF-IDF)**."
+    )
+    st.info(
+        "📡 **Sumber Data Tampilan Modul 2:** Ringkasan Anomali Versi diambil dari **NoSQL Realtime Database "
+        "(`/realtime_dashboard_summary/version_regression_summary`)**, sedangkan Klaster c-TF-IDF & Skor Z diambil dari "
+        "**Database SQL (`bertopic_clusters` & `app_versions`)**."
     )
 
     plat_filter_m2 = st.radio(
@@ -676,9 +738,9 @@ elif menu == "2. App Version Bug Radar (BERTopic)":
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total Laporan Bug Teknis IT", f"{len(df_bugs):,}")
     m2.metric("Jumlah Versi Rilis Terpantau", f"{df_bugs['appVersion'].nunique()} Versi")
-    m3.metric("BERTopic Coherence Score (Cv)", "0.714", "+0.224 vs LDA (0.490)")
-    top_reg_ver = ver_counts.iloc[0]["appVersion"] if len(ver_counts) > 0 else "4.79.2"
-    top_reg_z = ver_counts.iloc[0]["Z_Score"] if len(ver_counts) > 0 else 2.14
+    m3.metric("BERTopic Coherence Score (Cv)", str(rt_ver.get("bertopic_coherence_cv", 0.714)), "+0.224 vs LDA (0.490)")
+    top_reg_ver = ver_counts.iloc[0]["appVersion"] if len(ver_counts) > 0 else rt_ver.get("top_anomaly_version", "4.79.2")
+    top_reg_z = ver_counts.iloc[0]["Z_Score"] if len(ver_counts) > 0 else rt_ver.get("top_anomaly_zscore", 2.14)
     m4.metric("Versi Anomali Tertinggi (Z-Score)", f"v{top_reg_ver}", f"Z = +{top_reg_z}")
 
     top_versions = df_bugs["appVersion"].value_counts().head(12).index
@@ -696,10 +758,15 @@ elif menu == "2. App Version Bug Radar (BERTopic)":
 
     col_t1, col_t2 = st.columns([1.25, 1])
     with col_t1:
-        st.subheader("Representasi Kata Kunci c-TF-IDF per Klaster HDBSCAN (Y2)")
-        st.dataframe(BERTOPIC_CTFIDF_TABLE, use_container_width=True, hide_index=True)
+        st.subheader("Representasi Kata Kunci c-TF-IDF per Klaster HDBSCAN (Tabel SQL `bertopic_clusters`)")
+        bertopic_sql_df = dbm.query_sql_dataframe(
+            "SELECT cluster_code AS 'ID Klaster', topic_name AS 'Nama Klaster Topik Bug (BERTopic)', "
+            "top_keywords_ctfidf AS 'Kata Kunci Teratas Berbobot c-TF-IDF', coherence_score_cv AS 'Coherence Score (Cv)' "
+            "FROM bertopic_clusters"
+        )
+        st.dataframe(bertopic_sql_df if len(bertopic_sql_df) > 0 else BERTOPIC_CTFIDF_TABLE, use_container_width=True, hide_index=True)
     with col_t2:
-        st.subheader("Indeks Skor Z (Z-Score) Lonjakan Bug per appVersion")
+        st.subheader("Indeks Skor Z (Z-Score) Lonjakan Bug per appVersion (Tabel SQL `app_versions`)")
         st.dataframe(ver_counts, use_container_width=True, hide_index=True)
 
     df_bugs["at_short"] = df_bugs["at"].astype(str).str.slice(0, 10)
@@ -710,6 +777,7 @@ elif menu == "2. App Version Bug Radar (BERTopic)":
     )
     st.plotly_chart(fig_ts, use_container_width=True)
 
+
 # ==============================================================================
 # MODUL 3: CUSTOMER CHURN RISK RADAR 0-100% (BAB III.G.6)
 # ==============================================================================
@@ -719,15 +787,22 @@ elif menu == "3. Customer Churn Risk Radar (0-100%)":
         "Mengkuantifikasi probabilitas risiko perpindahan pelanggan ke kompetitor melalui persamaan tertimbang:"
     )
     st.latex(r"S_{churn} = \min\left(100, \left(0.60 \times P_{\text{BERT\_churn}} + 0.25 \times I_{lex} + 0.15 \times R_{pen}\right) \times 100\right)")
+    st.info(
+        "📡 **Sumber Data Tampilan Modul 3:** Summary Risiko Churn, Faktor Pemicu, Sinyal Kompetitor, dan Peringatan Kritis "
+        "diambil langsung dari **NoSQL Realtime Database (`/realtime_dashboard_summary/churn_risk_summary` & `/realtime_critical_alerts`)**, "
+        "dikombinasikan dengan histori lengkap dari **Database SQL (`reviews_processed`)**."
+    )
 
-    high_risk_df = df_data[df_data["S_churn"] >= 70.0]
-    mod_risk_df = df_data[(df_data["S_churn"] >= 35.0) & (df_data["S_churn"] < 70.0)]
+    high_risk_cnt = rt_churn.get("high_risk_count", int((df_data["S_churn"] >= 70.0).sum()))
+    mod_risk_cnt = rt_churn.get("moderate_risk_count", int(((df_data["S_churn"] >= 35.0) & (df_data["S_churn"] < 70.0)).sum()))
+    avg_churn_rt = rt_churn.get("avg_churn_score_pct", float(df_data["S_churn"].mean()))
+    explicit_cnt = rt_churn.get("explicit_uninstall_threat_count", int((df_data["I_lex"] == 1.0).sum()))
 
     k1, k2, k3, k4 = st.columns(4)
-    k1.metric("🔴 High Churn Risk (70-100%)", f"{len(high_risk_df):,} Pelanggan")
-    k2.metric("🟡 Moderate At-Risk (35-69%)", f"{len(mod_risk_df):,} Pelanggan")
-    k3.metric("Rata-Rata Skor Risiko Churn", f"{df_data['S_churn'].mean():.2f}%")
-    k4.metric("Sinyal Eksplisit Uninstall/Pindah", f"{(df_data['I_lex'] == 1.0).sum():,} Ulasan")
+    k1.metric("🔴 High Churn Risk (70-100%)", f"{high_risk_cnt:,} Pelanggan")
+    k2.metric("🟡 Moderate At-Risk (35-69%)", f"{mod_risk_cnt:,} Pelanggan")
+    k3.metric("Rata-Rata Skor Risiko Churn", f"{avg_churn_rt:.2f}%")
+    k4.metric("Sinyal Eksplisit Uninstall/Pindah", f"{explicit_cnt:,} Ulasan")
 
     c1, c2 = st.columns(2)
     with c1:
@@ -743,8 +818,12 @@ elif menu == "3. Customer Churn Risk Radar (0-100%)":
         st.plotly_chart(fig_hist, use_container_width=True)
 
     with c2:
-        zone_counts = df_data["churn_zone"].value_counts().reset_index()
-        zone_counts.columns = ["Zona Risiko Churn", "Jumlah Pelanggan"]
+        zone_dict = rt_churn.get("zone_distribution", {})
+        if zone_dict:
+            zone_counts = pd.DataFrame(list(zone_dict.items()), columns=["Zona Risiko Churn", "Jumlah Pelanggan"])
+        else:
+            zone_counts = df_data["churn_zone"].value_counts().reset_index()
+            zone_counts.columns = ["Zona Risiko Churn", "Jumlah Pelanggan"]
         fig_zone = px.bar(
             zone_counts, x="Zona Risiko Churn", y="Jumlah Pelanggan", color="Zona Risiko Churn",
             color_discrete_map={
@@ -752,20 +831,24 @@ elif menu == "3. Customer Churn Risk Radar (0-100%)":
                 "Moderate At-Risk (35-69%)": "#f1c40f",
                 "High Churn Risk (70-100%)": "#e74c3c"
             },
-            title="Jumlah Pelanggan Berdasarkan Zona Peringatan Churn"
+            title="Summary Pelanggan per Zona Peringatan Churn (Dari NoSQL Realtime DB)"
         )
         st.plotly_chart(fig_zone, use_container_width=True)
 
     st.markdown("---")
-    st.subheader("Ringkasan Faktor Pemicu Utama Churn & Analisis Kompetitor Tujuan (Bab III.G.6)")
+    st.subheader("Ringkasan Faktor Pemicu Utama Churn & Analisis Kompetitor Tujuan (Summary NoSQL Realtime DB)")
     at_risk_subset = df_data[df_data["S_churn"] >= 35.0]
     if len(at_risk_subset) == 0:
         at_risk_subset = df_data
 
     trig_col1, trig_col2 = st.columns(2)
     with trig_col1:
-        trig_counts = at_risk_subset["churn_trigger"].value_counts().reset_index()
-        trig_counts.columns = ["Faktor Pemicu Utama", "Jumlah Kasus"]
+        trig_dict = rt_churn.get("top_churn_triggers", {})
+        if trig_dict:
+            trig_counts = pd.DataFrame(list(trig_dict.items()), columns=["Faktor Pemicu Utama", "Jumlah Kasus"])
+        else:
+            trig_counts = at_risk_subset["churn_trigger"].value_counts().reset_index()
+            trig_counts.columns = ["Faktor Pemicu Utama", "Jumlah Kasus"]
         fig_trig = px.bar(
             trig_counts, x="Jumlah Kasus", y="Faktor Pemicu Utama", orientation="h",
             color="Jumlah Kasus", color_continuous_scale="OrRd",
@@ -775,15 +858,19 @@ elif menu == "3. Customer Churn Risk Radar (0-100%)":
         st.plotly_chart(fig_trig, use_container_width=True)
 
     with trig_col2:
-        comp_counts = at_risk_subset["competitor_signal"].value_counts().reset_index()
-        comp_counts.columns = ["Sinyal Ancaman / Kompetitor", "Jumlah Ulasan"]
+        comp_dict = rt_churn.get("competitor_mentions", {})
+        if comp_dict:
+            comp_counts = pd.DataFrame(list(comp_dict.items()), columns=["Sinyal Ancaman / Kompetitor", "Jumlah Ulasan"])
+        else:
+            comp_counts = at_risk_subset["competitor_signal"].value_counts().reset_index()
+            comp_counts.columns = ["Sinyal Ancaman / Kompetitor", "Jumlah Ulasan"]
         fig_comp = px.pie(
             comp_counts, names="Sinyal Ancaman / Kompetitor", values="Jumlah Ulasan",
             hole=0.4, title="Proporsi Sinyal Ancaman Uninstall & Kompetitor Tujuan Pindah"
         )
         st.plotly_chart(fig_comp, use_container_width=True)
 
-    st.subheader("Daftar Pelanggan Berisiko Tinggi (Prioritas Intervensi Retensi)")
+    st.subheader("Daftar Pelanggan Berisiko Tinggi — Prioritas Intervensi Retensi (SQL + Realtime Alerts)")
     st.dataframe(
         df_data.sort_values(by="S_churn", ascending=False)[
             ["platform", "appVersion", "rating", "S_churn", "churn_zone", "churn_trigger", "competitor_signal", "content", "division"]
@@ -791,14 +878,17 @@ elif menu == "3. Customer Churn Risk Radar (0-100%)":
         use_container_width=True
     )
 
+
 # ==============================================================================
-# MODUL 4: LIVE DEMO PREDICTOR - UJI REAL-TIME SAAT SIDANG (BAB III.G.6)
+# MODUL 4: LIVE DEMO PREDICTOR - UJI REAL-TIME & PUSH KE REALTIME DB (BAB III.G.6)
 # ==============================================================================
 elif menu == "4. Live Demo Predictor (Real-Time)":
-    st.title("⚡ Modul 4: Live Demo Predictor (Simulasi Uji Sidang Real-Time)")
+    st.title("⚡ Modul 4: Live Demo Predictor (Real-Time Prediction & Database Sync)")
     st.markdown(
         "Masukkan kalimat komplain baru secara langsung untuk menguji pipeline **Normalisasi Slang PySpark**, "
-        "**Triase Divisi IndoBERT ($Y_1$)**, **Deteksi Topik Bug BERTopic ($Y_2$)**, dan **Kalkulator Skor Risiko Churn ($Y_3$: 0-100%)**."
+        "**Triase Divisi IndoBERT ($Y_1$)**, **Deteksi Topik Bug BERTopic ($Y_2$)**, dan **Kalkulator Skor Risiko Churn ($Y_3$: 0-100%)**. "
+        "Setiap hasil prediksi otomatis disimpan secara *real-time* ke **NoSQL Realtime Database (`/live_prediction_stream`)** "
+        "dan **Database SQL (`live_predictions_log`)**."
     )
 
     PRESET_SCENARIOS = {
@@ -842,7 +932,7 @@ elif menu == "4. Live Demo Predictor (Real-Time)":
         with col_c:
             input_version = st.text_input("Metadata Versi Aplikasi (appVersion):", value=preset_val["version"])
 
-        submitted = st.form_submit_button("🔍 Jalankan Prediksi GoTo Pulse")
+        submitted = st.form_submit_button("🔍 Jalankan Prediksi & Simpan ke Realtime DB + SQL")
 
     if submitted:
         clean_res, slang_changes = normalize_indonesian_text(input_text)
@@ -855,6 +945,10 @@ elif menu == "4. Live Demo Predictor (Real-Time)":
         r_pen = (5 - input_rating) / 4.0
         p_bert_churn = float(np.clip(0.40 * (1.0 if pred_class in [0, 1] else 0.1) + 0.45 * i_lex + 0.15 * r_pen, 0.05, 0.98))
         s_churn = min(100.0, round((0.60 * p_bert_churn + 0.25 * i_lex + 0.15 * r_pen) * 100.0, 2))
+        churn_zone_str = (
+            "High Churn Risk (70-100%)" if s_churn >= 70.0
+            else ("Moderate At-Risk (35-69%)" if s_churn >= 35.0 else "Low Risk (0-34%)")
+        )
 
         class_probs = [0.04, 0.04, 0.04, 0.04]
         class_probs[pred_class] = 0.88
@@ -864,14 +958,36 @@ elif menu == "4. Live Demo Predictor (Real-Time)":
         })
 
         if s_churn >= 70.0:
-            urgency = "🔴 KRITIS / HIGH CHURN RISK (Prioritas Eskalasi &lt; 1 Jam)"
+            urgency = "🔴 KRITIS / HIGH CHURN RISK (Prioritas Eskalasi < 1 Jam)"
             gauge_color = "#e74c3c"
         elif s_churn >= 35.0:
-            urgency = "🟡 SEDANG / MODERATE AT-RISK (Tindak Lanjut &lt; 24 Jam)"
+            urgency = "🟡 SEDANG / MODERATE AT-RISK (Tindak Lanjut < 24 Jam)"
             gauge_color = "#f1c40f"
         else:
             urgency = "🟢 RENDAH / LOW RISK (Pemantauan Rutin)"
             gauge_color = "#2ecc71"
+
+        # Simpan ke NoSQL Realtime Database & SQL Database
+        sync_res = dbm.record_live_prediction_to_databases({
+            "platform": input_platform,
+            "appVersion": input_version,
+            "rating": input_rating,
+            "raw_text": input_text,
+            "clean_text": clean_res,
+            "label_issue": pred_class,
+            "issue_name": pred_issue_name,
+            "division": pred_division,
+            "bug_topic": pred_topic,
+            "S_churn": s_churn,
+            "churn_zone": churn_zone_str,
+            "urgency": urgency
+        })
+        saved_entry = sync_res["entry"]
+        st.success(
+            f"✅ **Tersimpan Real-Time!** Prediksi `{saved_entry['stream_id']}` berhasil ditambahkan ke "
+            f"**NoSQL Realtime Database (`/live_prediction_stream/{saved_entry['stream_id']}`)** dan "
+            f"**Tabel SQL (`live_predictions_log`)** pada `{saved_entry['timestamp']}` ({sync_res['cloud_sync_message']})."
+        )
 
         st.markdown("---")
         g_col, info_col = st.columns([1, 1.35])
@@ -918,3 +1034,96 @@ elif menu == "4. Live Demo Predictor (Real-Time)":
                 f"- **Total $S_{{churn}}$** = **`{s_churn:.2f}%`**"
             )
             st.write(f"**6. Tingkat Urgensi Penanganan Tiket:**\n**{urgency}**")
+
+    st.markdown("---")
+    st.subheader("📡 Live Stream Riwayat Prediksi Real-Time (Diambil dari NoSQL `/live_prediction_stream`)")
+    latest_nosql = dbm.load_nosql_realtime_data()
+    stream_items = latest_nosql.get("live_prediction_stream", [])
+    if len(stream_items) > 0:
+        stream_df = pd.DataFrame(stream_items)[
+            ["stream_id", "timestamp", "platform", "appVersion", "rating", "S_churn", "churn_zone", "issue_name", "division", "raw_text"]
+        ]
+        st.dataframe(stream_df, use_container_width=True, hide_index=True)
+
+
+# ==============================================================================
+# MODUL 5: ARSITEKTUR DUAL DATABASE (SQL & NOSQL REALTIME) + RANCANGAN FIGMA
+# ==============================================================================
+elif menu == "5. Arsitektur Dual Database (SQL & NoSQL) + Figma":
+    st.title("🗄️ Modul 5: Inspeksi Arsitektur Dual Database (SQL & NoSQL Realtime) + Desain Figma")
+    st.markdown(
+        "Modul ini disediakan untuk **pengecekan progres penerapan Database SQL, Database NoSQL (Realtime Database), "
+        "Summary & Prediksi Data, serta Pemetaan Menu Desain Figma** pada proyek **GoTo Pulse**."
+    )
+
+    tab_sql, tab_nosql, tab_figma = st.tabs([
+        "1️⃣ Database SQL Relasional (SQLite3)",
+        "2️⃣ Database NoSQL / Realtime Database (JSON Tree & Firebase)",
+        "3️⃣ Rancangan UI Figma & Struktur Data Menu NoSQL"
+    ])
+
+    with tab_sql:
+        st.subheader("Inspeksi Tabel Database SQL (`goto_pulse_sql.db`)")
+        st.write(
+            "Seluruh data CSV (`gojek_reviews.csv`, `tokopedia_reviews.csv`, & `goto_pulse_processed.csv`) telah diolah dan "
+            "dinormalisasi ke dalam **6 tabel relasional SQL**:"
+        )
+        sql_cols = st.columns(6)
+        for idx, (tname, tcount) in enumerate(db_diag["sql_tables"].items()):
+            sql_cols[idx % 6].metric(f"Tabel `{tname}`", f"{tcount:,} Baris")
+
+        selected_sql_table = st.selectbox(
+            "Pilih Tabel SQL untuk Diinspeksi:",
+            ["reviews_processed", "app_versions", "platforms", "model_benchmarks", "bertopic_clusters", "live_predictions_log"]
+        )
+        preview_sql_df = dbm.query_sql_dataframe(f"SELECT * FROM {selected_sql_table} LIMIT 50")
+        st.dataframe(preview_sql_df, use_container_width=True, hide_index=True)
+
+        st.markdown("#### 💻 Uji Eksekusi Kueri SQL Interaktif (Live SQL Runner)")
+        default_query = (
+            "SELECT platform, issue_name, COUNT(*) AS total_ulasan, "
+            "ROUND(AVG(S_churn), 2) AS rata_rata_risiko_churn "
+            "FROM reviews_processed GROUP BY platform, issue_name ORDER BY total_ulasan DESC;"
+        )
+        custom_sql = st.text_area("Masukkan Kueri SELECT SQL:", value=default_query, height=80)
+        if st.button("▶️ Jalankan Kueri SQL"):
+            try:
+                res_q = dbm.query_sql_dataframe(custom_sql)
+                st.dataframe(res_q, use_container_width=True, hide_index=True)
+            except Exception as e:
+                st.error(f"Kesalahan sintaks SQL: {e}")
+
+    with tab_nosql:
+        st.subheader("Inspeksi Pohon Dokumen NoSQL / Realtime Database (`goto_pulse_nosql_realtime.json`)")
+        st.write(
+            "Data menu navigasi, ringkasan eksekutif (*summary*), peringatan regresi kritis, dan aliran prediksi *real-time* "
+            "disimpan dalam struktur pohon dokumen JSON NoSQL (kompatibel 100% dengan **Firebase Realtime Database**):"
+        )
+        nosql_node_choice = st.selectbox(
+            "Pilih Node Dokumen NoSQL Realtime Database:",
+            [
+                "figma_navigation_menus (Data Menu Aplikasi dari Rancangan Figma)",
+                "realtime_dashboard_summary (Summary Hasil Pengolahan Data & Indikator Prediksi)",
+                "realtime_critical_alerts (Top 15 Peringatan Pelanggan Risiko Churn Tertinggi)",
+                "live_prediction_stream (Aliran Hasil Prediksi Real-Time Modul 4)",
+                "database_metadata (Metadata Sinkronisasi NoSQL)"
+            ]
+        )
+        node_key = nosql_node_choice.split(" ")[0]
+        st.json(nosql_realtime_doc.get(node_key, {}))
+
+    with tab_figma:
+        st.subheader("🎨 Spesifikasi Rancangan Antarmuka Figma & Pemetaan Data Menu NoSQL")
+        st.markdown(
+            "Sesuai ketentuan tugas: **'Figma digunakan untuk merancang tampilan aplikasi, sekaligus menentukan data menu "
+            "yang nantinya akan diambil dari NoSQL.'** Berikut adalah tabel pemetaan antara **Frame Desain Figma**, "
+            "**Data Menu di NoSQL (`/figma_navigation_menus`)**, dan **Sumber Data Tampilan**:"
+        )
+        figma_df = pd.DataFrame(figma_menus)[
+            ["menu_id", "figma_frame_id", "menu_key", "short_title", "nosql_source_nodes", "sql_source_tables"]
+        ]
+        st.dataframe(figma_df, use_container_width=True, hide_index=True)
+        st.success(
+            "📄 Dokumen blueprint lengkap desain Figma & struktur layar telah disimpan di file "
+            "`FIGMA_UI_DAN_NOSQL_MENU_SPEC.md` pada folder proyek."
+        )
