@@ -48,6 +48,19 @@ def save_firebase_config(firebase_url: str) -> dict:
     return cfg
 
 
+def sanitize_firebase_keys(obj):
+    """Membersihkan karakter terlarang Firebase Realtime DB (/, ., $, #, [, ]) dari key dict."""
+    if isinstance(obj, dict):
+        new_d = {}
+        for k, v in obj.items():
+            clean_k = str(k).replace('/', ' - ').replace('.', '_').replace('#', '').replace('$', '').replace('[', '(').replace(']', ')')
+            new_d[clean_k] = sanitize_firebase_keys(v)
+        return new_d
+    elif isinstance(obj, list):
+        return [sanitize_firebase_keys(item) for item in obj]
+    return obj
+
+
 def _firebase_rest_request(node_path: str, method: str = "GET", payload: dict = None, timeout: int = 5):
     """Sinkronisasi langsung ke Firebase Realtime Database Cloud melalui REST API (.json)."""
     cfg = get_firebase_config()
@@ -60,7 +73,8 @@ def _firebase_rest_request(node_path: str, method: str = "GET", payload: dict = 
         data_bytes = None
         headers = {"Content-Type": "application/json"}
         if payload is not None:
-            data_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            sanitized_payload = sanitize_firebase_keys(payload)
+            data_bytes = json.dumps(sanitized_payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(target_url, data=data_bytes, headers=headers, method=method)
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             resp_body = resp.read().decode("utf-8")

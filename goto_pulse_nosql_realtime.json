@@ -3,96 +3,97 @@
     "db_type": "NoSQL Document & Realtime Database (JSON Tree / Firebase RTDB Structure)",
     "project_id": "goto-pulse-unesa-2026",
     "schema_version": "2.0.0",
-    "last_synced_at": "2026-11-16 10:14:19",
+    "last_synced_at": "2026-11-17 17:45:21",
     "source_csv": "goto_pulse_processed.csv",
     "total_records_synced": 42197
   },
   "figma_navigation_menus": {
     "M01": {
+      "enabled": true,
+      "figma_frame_id": "Frame-101:MultiAspectClassifier",
+      "icon": "🛠️",
       "menu_id": "M01",
       "menu_key": "1. Multi-Aspect Issue Classifier",
-      "short_title": "Auto-Bug Triage",
-      "icon": "🛠️",
-      "figma_frame_id": "Frame-101:MultiAspectClassifier",
-      "subtitle": "Pemisahan otomatis keluhan Operasional Lapangan vs Bug Teknis IT & Pembayaran",
       "nosql_source_nodes": [
         "/figma_navigation_menus/M01",
         "/realtime_dashboard_summary/issue_triage_summary"
       ],
+      "order": 1,
+      "short_title": "Auto-Bug Triage",
       "sql_source_tables": [
         "reviews_processed",
         "model_benchmarks",
         "platforms"
       ],
-      "order": 1,
-      "enabled": true
+      "subtitle": "Pemisahan otomatis keluhan Operasional Lapangan vs Bug Teknis IT & Pembayaran"
     },
     "M02": {
+      "enabled": true,
+      "figma_frame_id": "Frame-102:VersionBugRadar",
+      "icon": "📡",
       "menu_id": "M02",
       "menu_key": "2. App Version Bug Radar (BERTopic)",
-      "short_title": "Version Bug Radar",
-      "icon": "📡",
-      "figma_frame_id": "Frame-102:VersionBugRadar",
-      "subtitle": "Deteksi regresi versi rilis (appVersion) & klaster topik bug dinamis BERTopic",
       "nosql_source_nodes": [
         "/figma_navigation_menus/M02",
         "/realtime_dashboard_summary/version_regression_summary"
       ],
+      "order": 2,
+      "short_title": "Version Bug Radar",
       "sql_source_tables": [
         "app_versions",
         "bertopic_clusters",
         "reviews_processed"
       ],
-      "order": 2,
-      "enabled": true
+      "subtitle": "Deteksi regresi versi rilis (appVersion) & klaster topik bug dinamis BERTopic"
     },
     "M03": {
+      "enabled": true,
+      "figma_frame_id": "Frame-103:ChurnRiskRadar",
+      "icon": "⚠️",
       "menu_id": "M03",
       "menu_key": "3. Customer Churn Risk Radar (0-100%)",
-      "short_title": "Churn Risk Radar",
-      "icon": "⚠️",
-      "figma_frame_id": "Frame-103:ChurnRiskRadar",
-      "subtitle": "Kuantifikasi probabilitas risiko churn pelanggan (0-100%) & sinyal kompetitor",
       "nosql_source_nodes": [
         "/figma_navigation_menus/M03",
         "/realtime_dashboard_summary/churn_risk_summary",
         "/realtime_critical_alerts"
       ],
+      "order": 3,
+      "short_title": "Churn Risk Radar",
       "sql_source_tables": [
         "reviews_processed"
       ],
-      "order": 3,
-      "enabled": true
+      "subtitle": "Kuantifikasi probabilitas risiko churn pelanggan (0-100%) & sinyal kompetitor"
     },
     "M04": {
+      "enabled": true,
+      "figma_frame_id": "Frame-104:LiveDemoPredictor",
+      "icon": "⚡",
       "menu_id": "M04",
       "menu_key": "4. Live Demo Predictor (Real-Time)",
-      "short_title": "Live Demo Predictor",
-      "icon": "⚡",
-      "figma_frame_id": "Frame-104:LiveDemoPredictor",
-      "subtitle": "Simulasi uji kalimat komplain real-time dengan penyimpanan instan ke Realtime DB & SQL",
       "nosql_source_nodes": [
         "/figma_navigation_menus/M04",
         "/live_prediction_stream"
       ],
+      "order": 4,
+      "short_title": "Live Demo Predictor",
       "sql_source_tables": [
         "live_predictions_log"
       ],
-      "order": 4,
-      "enabled": true
+      "subtitle": "Simulasi uji kalimat komplain real-time dengan penyimpanan instan ke Realtime DB & SQL"
     },
     "M05": {
+      "enabled": true,
+      "figma_frame_id": "Frame-105:DualDatabaseInspector",
+      "icon": "🗄️",
       "menu_id": "M05",
       "menu_key": "5. Arsitektur Dual Database (SQL & NoSQL) + Figma",
-      "short_title": "Inspeksi SQL, NoSQL & Figma",
-      "icon": "🗄️",
-      "figma_frame_id": "Frame-105:DualDatabaseInspector",
-      "subtitle": "Panel pembuktian implementasi Database SQL, NoSQL Realtime Database, & Desain Figma",
       "nosql_source_nodes": [
         "/figma_navigation_menus",
         "/realtime_dashboard_summary",
         "/live_prediction_stream"
       ],
+      "order": 5,
+      "short_title": "Inspeksi SQL, NoSQL & Figma",
       "sql_source_tables": [
         "platforms",
         "app_versions",
@@ -101,15 +102,40 @@
         "bertopic_clusters",
         "live_predictions_log"
       ],
-      "order": 5,
-      "enabled": true
+      "subtitle": "Panel pembuktian implementasi Database SQL, NoSQL Realtime Database, & Desain Figma"
     }
   },
   "realtime_dashboard_summary": {
-    "total_reviews_analyzed": 42197,
-    "platform_breakdown": {
-      "Tokopedia": 23699,
-      "Gojek": 18498
+    "churn_risk_summary": {
+      "avg_churn_score_pct": 10.8,
+      "competitor_mentions": {
+        "Ancaman Uninstall Eksplisit": 321,
+        "Keluhan Frustrasi Berulang (Implisit)": 2795,
+        "Pindah ke Grab": 179,
+        "Pindah ke Maxim": 35,
+        "Pindah ke Shopee": 48,
+        "Pindah ke TikTok Shop": 16
+      },
+      "explicit_uninstall_threat_count": 748,
+      "high_risk_count": 969,
+      "low_risk_count": 38803,
+      "moderate_risk_count": 2425,
+      "top_churn_triggers": {
+        "Insiden Saldo GoPay Terpotong  -  Gagal Bayar": 254,
+        "Intensitas Iklan & Notifikasi Spam Mengganggu": 32,
+        "Kegagalan Login OTP & Akses Akun": 122,
+        "Kenaikan Biaya Layanan  -  Ongkir & Ketiadaan Promo": 120,
+        "Keterlambatan Ekspedisi Kurir & Paket Nyangkut": 803,
+        "Ketidakpuasan Layanan Umum": 794,
+        "Ketidaksesuaian Kualitas Barang  -  Penjual Tokopedia": 275,
+        "Pembatalan Order Mitra Driver & Masalah Titik GPS": 928,
+        "Regresi Bug Force Close  -  Blank Screen Pasca-Update": 66
+      },
+      "zone_distribution": {
+        "High Churn Risk (70-100%)": 969,
+        "Low Risk (0-34%)": 38803,
+        "Moderate At-Risk (35-69%)": 2425
+      }
     },
     "issue_triage_summary": {
       "class_0_it_bug_count": 1944,
@@ -117,50 +143,24 @@
       "class_2_promo_policy_count": 1673,
       "class_3_positive_count": 26794,
       "distribution_by_name": {
-        "Kelas 3: Apresiasi Positif / Normal": 26794,
-        "Kelas 1: Operasional Lapangan (Mitra Driver/Kurir Logistik/Penjual)": 11786,
-        "Kelas 0: Bug Teknis IT & Pembayaran (GoPay/Crash/OTP/GPS)": 1944,
-        "Kelas 2: Akun, Promo & Kebijakan Layanan": 1673
+        "Kelas 0: Bug Teknis IT & Pembayaran (GoPay - Crash - OTP - GPS)": 1944,
+        "Kelas 1: Operasional Lapangan (Mitra Driver - Kurir Logistik - Penjual)": 11786,
+        "Kelas 2: Akun, Promo & Kebijakan Layanan": 1673,
+        "Kelas 3: Apresiasi Positif  -  Normal": 26794
       }
     },
+    "platform_breakdown": {
+      "Gojek": 18498,
+      "Tokopedia": 23699
+    },
+    "total_reviews_analyzed": 42197,
     "version_regression_summary": {
-      "total_it_bug_reports": 1944,
-      "monitored_versions_count": 110,
       "bertopic_coherence_cv": 0.714,
       "lda_baseline_cv": 0.49,
+      "monitored_versions_count": 110,
       "top_anomaly_version": "4.79.2",
-      "top_anomaly_zscore": 9.36
-    },
-    "churn_risk_summary": {
-      "high_risk_count": 969,
-      "moderate_risk_count": 2425,
-      "low_risk_count": 38803,
-      "avg_churn_score_pct": 10.8,
-      "explicit_uninstall_threat_count": 748,
-      "zone_distribution": {
-        "Low Risk (0-34%)": 38803,
-        "Moderate At-Risk (35-69%)": 2425,
-        "High Churn Risk (70-100%)": 969
-      },
-      "top_churn_triggers": {
-        "Pembatalan Order Mitra Driver & Masalah Titik GPS": 928,
-        "Keterlambatan Ekspedisi Kurir & Paket Nyangkut": 803,
-        "Ketidakpuasan Layanan Umum": 794,
-        "Ketidaksesuaian Kualitas Barang / Penjual Tokopedia": 275,
-        "Insiden Saldo GoPay Terpotong / Gagal Bayar": 254,
-        "Kegagalan Login OTP & Akses Akun": 122,
-        "Kenaikan Biaya Layanan / Ongkir & Ketiadaan Promo": 120,
-        "Regresi Bug Force Close / Blank Screen Pasca-Update": 66,
-        "Intensitas Iklan & Notifikasi Spam Mengganggu": 32
-      },
-      "competitor_mentions": {
-        "Keluhan Frustrasi Berulang (Implisit)": 2795,
-        "Ancaman Uninstall Eksplisit": 321,
-        "Pindah ke Grab": 179,
-        "Pindah ke Shopee": 48,
-        "Pindah ke Maxim": 35,
-        "Pindah ke TikTok Shop": 16
-      }
+      "top_anomaly_zscore": 9.36,
+      "total_it_bug_reports": 1944
     }
   },
   "realtime_critical_alerts": [
@@ -346,6 +346,57 @@
     }
   ],
   "live_prediction_stream": [
+    {
+      "stream_id": "RT-PRED-0004",
+      "timestamp": "2026-11-17 17:45:21",
+      "platform": "Gojek",
+      "appVersion": "4.79.2",
+      "rating": 2,
+      "raw_text": "Habis apdet aplikasi Gojek ke versi 4.79.2 malah sering fc sendiri pas mau bayar pake GoPay, saldo udh kepotong tp transaksi gagal! Kalo gk bener juga sy uninstal pindah ke Grab aja.",
+      "clean_text": "habis update aplikasi gojek versi malah sering force close sendiri pas mau bayar pakai gopay saldo sudah terpotong tetapi transaksi gagal kalau tidak bener juga uninstall pindah grab aja",
+      "label_issue": 0,
+      "issue_name": "Kelas 0: Bug Teknis IT & Pembayaran (GoPay/Crash/OTP/GPS)",
+      "division": "Divisi IT Engineering, Payment & QA System",
+      "bug_topic": "Topik 0: Kegagalan Transaksi & Saldo GoPay Terpotong",
+      "S_churn": 94.0,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "urgency": "🔴 KRITIS / HIGH CHURN RISK (Prioritas Eskalasi < 1 Jam)",
+      "source_db": "NoSQL Realtime Database + SQL Audit Log"
+    },
+    {
+      "stream_id": "RT-PRED-0003",
+      "timestamp": "2026-11-17 17:44:06",
+      "platform": "Gojek",
+      "appVersion": "4.80.1",
+      "rating": 1,
+      "raw_text": "Tes Sinkronisasi Cloud Firebase Realtime Database!",
+      "clean_text": "tes sinkronisasi cloud firebase realtime database",
+      "label_issue": 0,
+      "issue_name": "Kelas 0: Bug Teknis IT & Pembayaran (GoPay/Crash/OTP/GPS)",
+      "division": "Divisi IT Engineering, Payment & QA System",
+      "bug_topic": "Topik 0: Kegagalan Transaksi & Saldo GoPay Terpotong",
+      "S_churn": 95.0,
+      "churn_zone": "High Churn Risk (70-100%)",
+      "urgency": "KRITIS",
+      "source_db": "NoSQL Realtime Database + SQL Audit Log"
+    },
+    {
+      "stream_id": "RT-PRED-0002",
+      "timestamp": "2026-11-17 17:10:52",
+      "platform": "Gojek",
+      "appVersion": "4.80.1",
+      "rating": 1,
+      "raw_text": "Tes Realtime Live Push",
+      "clean_text": "tes realtime live push",
+      "label_issue": 0,
+      "issue_name": "Bug Teknis IT",
+      "division": "IT",
+      "bug_topic": "Topik 1",
+      "S_churn": 88.5,
+      "churn_zone": "High Churn Risk",
+      "urgency": "KRITIS",
+      "source_db": "NoSQL Realtime Database + SQL Audit Log"
+    },
     {
       "stream_id": "RT-PRED-0001",
       "timestamp": "2026-11-16 10:07:27",
